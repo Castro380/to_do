@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FlatList, StyleSheet, View } from 'react-native'
 import { Button, Card, IconButton, Text, TextInput } from 'react-native-paper'
 
@@ -8,31 +9,60 @@ export default function Lista_Tarefas() {
     const [inputValue, setInputValue] = useState('')
     const [editando, setEditando] = useState(false)
     const [tarefaSendoEditada, setTarefaSendoEditada] = useState(null)
+    const [tarefasConcluidas, setTarefasConcluidas] = useState([])
 
-    function adicionarTarefa() {
-        if (inputValue != '') {
-            setTarefas([...tarefas, inputValue])
-            setTarefaSendoEditada(null)
-            setInputValue('')
-        } else {
-            console.warn('Digite algum valor')
-        }
+    useEffect(() => {
+        loadTarefas()
+        loadTarefasConcluidas()
+    },[])
+
+    async function loadTarefas() {
+        const response =  await AsyncStorage.getItem('tarefas')
+        const tarefasStorage = response ? JSON.parse(response) : []
+        setTarefas(tarefasStorage)
+    }
+    async function loadTarefasConcluidas() {
+        const response =  await AsyncStorage.getItem('tarefasConcluidas')
+        const tarefaConcluidasStorage = response ? JSON.parse(response) : []
+        setTarefas(tarefaConcluidasStorage)
     }
 
-    function editarTarefa() {
+    async function adicionarTarefa() {
+        let novaListaTarefas = tarefas
+        novaListaTarefas.push(inputValue)
+        await AsyncStorage.setItem('tarefas', JSON.stringify(novaListaTarefas));
+        setTarefas(novaListaTarefas)
+        setTarefaSendoEditada(null)
+        setInputValue('')
+    }
 
+    async function adicionarTarefaConcluida(tarefa) {
+        let novaListaTarefasConcluidas = tarefasConcluidas
+        novaListaTarefasConcluidas.push(tarefa)
+        await AsyncStorage.setItem('tarefasConcluidas', JSON.stringify(novaListaTarefasConcluidas));
+        setTarefasConcluidas(novaListaTarefasConcluidas)
+    
+
+        let novaListaTarefas = tarefas.filter(item => item !== tarefa)
+        await AsyncStorage.setItem('tarefas', JSON.stringify(novaListaTarefas));
+        setTarefas(novaListaTarefas)
+    }
+
+    async function editarTarefa() {
         let index = tarefas.indexOf(tarefaSendoEditada)
-        let novaLista = tarefas
+        let novaListaTarefas = tarefas
 
-        novaLista.splice(index, 1, inputValue)
+        novaListaTarefas.splice(index, 1, inputValue)
 
-        setTarefas(novaLista)
+        await AsyncStorage.setItem('tarefas', JSON.stringify(novaListaTarefas));
+        setTarefas(novaListaTarefas)
         setEditando(false)
         setInputValue('')
     }
 
-    function excluirTarefa(tarefa) {
+    async function excluirTarefa(tarefa) {
         let novaListaTarefas = tarefas.filter(item => item !== tarefa)
+        await AsyncStorage.setItem('tarefas', JSON.stringify(novaListaTarefas));
         setTarefas(novaListaTarefas)
     }
 
@@ -43,6 +73,7 @@ export default function Lista_Tarefas() {
     }
 
     function handleButton() {
+
         if (editando) {
             editarTarefa()
         } else {
@@ -83,6 +114,9 @@ export default function Lista_Tarefas() {
                     >
                         <Card.Content style={styles.cardContent}>
                             <Text variant='titleMedium' style={{ flex: 1 }}>{item}</Text>
+                            <IconButton icon='check-bold' size={30} onPress={() => {
+                                adicionarTarefaConcluida(item)
+                            }} />
                             <IconButton icon='lead-pencil' size={30} onPress={() => {
                                 handleEditarTarefa(item)
                             }} />
@@ -93,7 +127,22 @@ export default function Lista_Tarefas() {
                     </Card>
                 )}
             />
-              
+                <Text>Tarefas concluídas</Text>
+                <FlatList
+                style={styles.list}
+                data={tarefasConcluidas}
+                renderItem={({ item }) => (
+                    <Card
+                        style={styles.card_concluido}
+                        mode='outlined'
+                    >
+                        <Card.Content style={styles.cardContent}>
+                            <Text variant='titleMedium' style={{ flex: 1 }}>{item}</Text>
+                        </Card.Content>
+                    </Card>
+                )}
+            />
+
         </View>
     )
 }
